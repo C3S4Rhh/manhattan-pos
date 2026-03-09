@@ -9,13 +9,15 @@ export default function Menu({ productos, ventas, alTerminar }: any) {
   const [notas, setNotas] = useState('') 
   const [carrito, setCarrito] = useState<any[]>([])
 
-  // Filtros y Cálculos
-  const productosVisibles = productos?.filter((p: any) => p.activo && !p.archivado) || [];
+  // --- CAMBIO 1: SEPARAR PRODUCTOS (Día vs Carta) ---
+  const productosBase = productos?.filter((p: any) => p.activo && !p.archivado) || [];
+  const principales = productosBase.filter((p: any) => !p.es_a_la_carta);
+  const aLaCarta = productosBase.filter((p: any) => p.es_a_la_carta);
+
   const hoy = new Date().toLocaleDateString('sv-SE');
   const totalCajaHoy = ventas?.filter((v: any) => v.creado_at?.startsWith(hoy))
     .reduce((acc: number, v: any) => acc + Number(v.precio_venta), 0) || 0;
 
-  // Lógica de Carrito (Podría ir a un Hook, pero aquí ya es bastante limpia)
   const gestionarCarrito = (p: any, accion: 'sumar' | 'restar') => {
     const existe = carrito.find(item => item.id === p.id);
     if (accion === 'sumar') {
@@ -56,8 +58,10 @@ export default function Menu({ productos, ventas, alTerminar }: any) {
           <p className="text-4xl font-black italic">Bs {totalCajaHoy.toFixed(2)}</p>
           <p className="text-[10px] font-bold uppercase tracking-widest text-green-100">Caja Hoy</p>
         </div>
+
+        {/* --- CAMBIO 2: USAR SOLO PRODUCTOS PRINCIPALES PARA LOS BOTONES --- */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {productosVisibles.map((p: any) => (
+          {principales.map((p: any) => (
             <button key={p.id} onClick={() => gestionarCarrito(p, 'sumar')} disabled={p.stock <= 0}
               className={`p-4 rounded-2xl shadow-sm border flex justify-between items-center transition-all active:scale-95 ${p.stock > 0 ? 'bg-white' : 'bg-gray-100 opacity-50'}`}>
               <div className="text-left">
@@ -68,6 +72,30 @@ export default function Menu({ productos, ventas, alTerminar }: any) {
             </button>
           ))}
         </div>
+
+        {/* --- CAMBIO 3: EL SELECCIONADOR DE PLATOS A LA CARTA --- */}
+        {aLaCarta.length > 0 && (
+          <div className="mt-6 p-4 bg-white rounded-3xl border-2 border-dashed border-gray-200">
+            <p className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest ml-2">Menú a la Carta</p>
+            <select 
+              className="w-full p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl font-bold text-xs text-orange-600 outline-none focus:border-orange-500 transition-all"
+              onChange={(e) => {
+               const plato = aLaCarta.find((p: any) => p.id === e.target.value);
+                if (plato) {
+                  gestionarCarrito(plato, 'sumar');
+                  e.target.value = ""; // Resetea el seleccionador
+                }
+              }}
+            >
+              <option value="">Selecciona un adicional...</option>
+              {aLaCarta.map((p: any) => (
+                <option key={p.id} value={p.id} disabled={p.stock <= 0}>
+                  {p.nombre.toUpperCase()} - Bs {p.precio} {p.stock <= 0 ? '(AGOTADO)' : `(Stock: ${p.stock})`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* SECCIÓN COMANDA */}
