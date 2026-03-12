@@ -76,7 +76,7 @@ export default function Menu({ productos, ventas, alTerminar }: any) {
         {/* --- CAMBIO 3: EL SELECCIONADOR DE PLATOS A LA CARTA --- */}
         {aLaCarta.length > 0 && (
           <div className="mt-6 p-4 bg-white rounded-3xl border-2 border-dashed border-gray-200">
-            <p className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest ml-2">Menú a la Carta</p>
+            <p className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-widest ml-2">Platos a la Carta</p>
             <select 
               className="w-full p-4 bg-orange-50 border-2 border-orange-200 rounded-2xl font-bold text-xs text-orange-600 outline-none focus:border-orange-500 transition-all"
               onChange={(e) => {
@@ -101,7 +101,7 @@ export default function Menu({ productos, ventas, alTerminar }: any) {
       {/* SECCIÓN COMANDA */}
       <div className="w-full lg:w-96">
         <div className="bg-white p-6 rounded-[2.5rem] shadow-2xl border-t-8 border-orange-500">
-          <input placeholder="CLIENTE" value={cliente} onChange={e => setCliente(e.target.value)} className={estilos.input + " mb-2"} />
+          <input placeholder="MESA" value={cliente} onChange={e => setCliente(e.target.value)} className={estilos.input + " mb-2"} />
           <textarea placeholder="NOTAS" value={notas} onChange={e => setNotas(e.target.value)} className="w-full p-4 bg-orange-50 rounded-2xl mb-4 font-bold text-[11px] h-20 outline-none" />
           
           <div className="space-y-2 mb-4 max-h-60 overflow-auto">
