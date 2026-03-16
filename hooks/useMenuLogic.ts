@@ -1,3 +1,4 @@
+'use client'
 import { useState } from 'react'
 import { api } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
@@ -28,27 +29,25 @@ export const useMenuLogic = (alTerminar: any) => {
     }
   };
 
-  const handleConfirmar = async () => {
+  // --- CAMBIO: Ahora handleConfirmar recibe el método de pago ---
+  const handleConfirmar = async (metodo: string) => {
     if (!cliente.trim() || carrito.length === 0) return alert("Datos incompletos");
     const totalPedido = carrito.reduce((a, b) => a + (b.precio * b.cantidad), 0);
     
     try {
-      const { error } = await api.registrarPedido(cliente, carrito);
+      // Enviamos cliente, carrito, notas y el nuevo parámetro metodo
+      const { error } = await api.registrarPedido(cliente, carrito, notas, metodo);
+      
       if (!error) {
-        // --- CORRECCIÓN DEL CONTADOR DIARIO ---
-        // 1. Obtenemos la fecha de hoy a las 00:00:00 en formato ISO
         const hoy = new Date();
         hoy.setHours(0, 0, 0, 0);
         const hoyISO = hoy.toISOString();
 
-        // 2. Consultamos solo las ventas realizadas DESDE el inicio de hoy
         const { data: vHoy } = await supabase
           .from('ventas')
           .select('creado_at')
-          .gte('creado_at', hoyISO); // Mayor o igual a hoy a las 00:00
+          .gte('creado_at', hoyISO);
         
-        // 3. Agrupamos por marca de tiempo única (o por registro)
-        // Si registrarPedido crea un registro por producto, usamos Set para contar pedidos únicos
         const nroPedido = new Set(vHoy?.map(v => v.creado_at)).size;
         
         setDatosParaImprimir({
@@ -56,7 +55,8 @@ export const useMenuLogic = (alTerminar: any) => {
           carrito: [...carrito],
           total: totalPedido,
           notas: notas,
-          nro: `#${nroPedido}` // Ahora sí mostrará #3
+          metodo: metodo, // Guardamos el método para el ticket si lo necesitas
+          nro: `#${nroPedido}`
         });
 
         setShowModal(true); 
@@ -81,7 +81,7 @@ export const useMenuLogic = (alTerminar: any) => {
   return {
     cliente, setCliente, 
     notas, setNotas, 
-    carrito, setCarrito, // Añadido setCarrito por si necesitas limpiar manualmente
+    carrito, setCarrito,
     gestionarCarrito, 
     handleConfirmar, 
     showModal, 

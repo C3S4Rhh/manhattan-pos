@@ -5,8 +5,10 @@ import Menu from '@/components/Menu'
 import Tickets from '@/components/Tickets'
 import Reportes from '@/components/Reportes'
 import Gestion from '@/components/Gestion'
-import Gastos from '@/components/Gastos'
+import Gastos from '@/components/Gastos/Gastos'
 import Balance from '@/components/Balance'
+import Personal from '@/components/Personal' // NUEVA IMPORTACIÓN
+import LoginPage from './login/page'
 
 export default function Home() {
   const [vista, setVista] = useState('menu')
@@ -14,12 +16,9 @@ export default function Home() {
   const [ventas, setVentas] = useState<any[]>([])
   const [gastos, setGastos] = useState<any[]>([])
   
-  // ESTADOS PARA SEGURIDAD
-  const [rol, setRol] = useState<'admin' | 'cajero'>('cajero')
-  const [mostrarPin, setMostrarPin] = useState(false)
-  const [pinIngresado, setPinIngresado] = useState('')
-
-  const PIN_CORRECTO = "1234" // Tu clave secreta
+  const [sesion, setSesion] = useState<any>(null)
+  const [perfil, setPerfil] = useState<any>(null)
+  const [cargando, setCargando] = useState(true)
 
   const cargarDatos = async () => {
     const { data: p } = await supabase.from('productos').select('*').order('nombre')
@@ -31,81 +30,121 @@ export default function Home() {
     if (g) setGastos([...g])
   }
 
-  useEffect(() => { cargarDatos() }, [vista])
-
-  // Lógica del Teclado
-  const manejarTecla = (num: string) => {
-    if (pinIngresado.length < 4) {
-      const nuevoPin = pinIngresado + num
-      setPinIngresado(nuevoPin)
-      
-      if (nuevoPin === PIN_CORRECTO) {
-        setRol('admin')
-        setMostrarPin(false)
-        setPinIngresado('')
-      } else if (nuevoPin.length === 4) {
-        alert("PIN INCORRECTO")
-        setPinIngresado('')
-      }
+  const cambiarPassword = async () => {
+    const nuevaClave = prompt("Ingresa tu nueva contraseña (mínimo 6 caracteres):")
+    if (nuevaClave && nuevaClave.length >= 6) {
+      const { error } = await supabase.auth.updateUser({ password: nuevaClave })
+      if (error) alert("Error: " + error.message)
+      else alert("¡Contraseña actualizada correctamente!")
+    } else if (nuevaClave) {
+      alert("La contraseña debe tener al menos 6 caracteres.")
     }
+  }
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSesion(session)
+      
+      if (session) {
+        const { data } = await supabase
+          .from('perfiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
+        setPerfil(data)
+        cargarDatos()
+      }
+      setCargando(false)
+    }
+
+    checkUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSesion(session)
+      if (!session) setPerfil(null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [vista])
+
+  const cerrarSesion = async () => {
+    await supabase.auth.signOut()
+    window.location.reload()
+  }
+
+  if (cargando) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center animate-pulse">
+          <h1 className="text-2xl font-black text-green-600 italic">SPINACH 🍱</h1>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Verificando Credenciales...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!sesion) {
+    return <LoginPage />
   }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10 font-sans">
-      {/* MODAL DEL TECLADO NUMÉRICO */}
-      {mostrarPin && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-xs shadow-2xl text-center">
-            <h2 className="text-gray-400 font-black text-xs uppercase mb-4 tracking-widest">Acceso Administrador</h2>
-            <div className="flex justify-center gap-3 mb-8">
-              {[1, 2, 3, 4].map((_, i) => (
-                <div key={i} className={`w-4 h-4 rounded-full border-2 border-purple-200 ${pinIngresado.length > i ? 'bg-purple-600 border-purple-600' : 'bg-gray-100'}`} />
-              ))}
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => (
-                <button key={n} onClick={() => manejarTecla(n.toString())} className="h-14 bg-gray-50 rounded-2xl text-xl font-black text-gray-700 active:bg-purple-100 active:text-purple-700 transition-colors">{n}</button>
-              ))}
-              <button onClick={() => { setMostrarPin(false); setPinIngresado(''); }} className="h-14 bg-red-50 text-red-500 rounded-2xl font-black text-xs">EXIT</button>
-              <button onClick={() => manejarTecla('0')} className="h-14 bg-gray-50 rounded-2xl text-xl font-black text-gray-700">0</button>
-              <button onClick={() => setPinIngresado('')} className="h-14 bg-gray-50 text-gray-400 rounded-2xl font-black text-xs">DEL</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <header className="bg-white shadow-md mb-4 sticky top-0 z-50 print:hidden text-center p-4">
         <div className="flex justify-between items-center max-w-5xl mx-auto mb-2">
            <h1 className="text-xl font-black text-orange-600 uppercase tracking-tighter">SPINACH 🍱</h1>
-           <button 
-             onClick={() => rol === 'admin' ? setRol('cajero') : setMostrarPin(true)}
-             className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border-2 transition-all ${rol === 'admin' ? 'border-purple-600 bg-purple-50 text-purple-600' : 'border-gray-200 text-gray-400'}`}
-           >
-             {rol === 'admin' ? '🔓 ADMIN' : '🔒 CAJERO'}
-           </button>
+           
+           <div className="flex items-center gap-3">
+             <div className="text-right hidden md:block">
+               <p className="text-[9px] font-black text-gray-400 uppercase leading-none">{perfil?.nombre || 'Usuario'}</p>
+               <p className="text-[10px] font-bold text-green-600 uppercase leading-tight">{perfil?.rol || 'Personal'}</p>
+               <button 
+                 onClick={cambiarPassword}
+                 className="text-[8px] font-black text-blue-500 uppercase hover:underline block ml-auto"
+               >
+                 Cambiar Clave 🔑
+               </button>
+             </div>
+             <button 
+               onClick={cerrarSesion}
+               className="px-3 py-1 rounded-full text-[9px] font-black uppercase border-2 border-red-100 text-red-500 hover:bg-red-50 transition-all"
+             >
+               Salir 🚪
+             </button>
+           </div>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 justify-start md:justify-center no-scrollbar">
           <button onClick={() => setVista('menu')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'menu' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'}`}>Vender 💰</button>
-          {rol === 'admin' && (
+          
+          {(perfil?.rol === 'admin' || perfil?.rol === 'subadmin') && (
             <>
               <button onClick={() => setVista('gastos')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'gastos' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'}`}>Gastos 💸</button>
               <button onClick={() => setVista('balance')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'balance' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500'}`}>Balance 📊</button>
             </>
           )}
+          
           <button onClick={() => setVista('reporte')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'reporte' ? 'bg-black text-white' : 'bg-gray-100 text-gray-500'}`}>Cierre 🖨️</button>
           <button onClick={() => setVista('historial')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'historial' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-500'}`}>Tickets 🕒</button>
+          
+          {/* BOTÓN DE GESTIÓN: Visible para todos los que tengan acceso a la función Gestión */}
           <button onClick={() => setVista('admin')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'admin' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-500'}`}>Gestión ⚙️</button>
+
+          {/* BOTÓN DE PERSONAL: SOLO PARA ADMIN */}
+          {perfil?.rol === 'admin' && (
+            <button onClick={() => setVista('personal')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'personal' ? 'bg-indigo-700 text-white' : 'bg-gray-100 text-gray-500'}`}>Personal 👤</button>
+          )}
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-2">
         {vista === 'menu' && <Menu productos={productos} ventas={ventas} alTerminar={cargarDatos} />}
-        {vista === 'gastos' && rol === 'admin' && <Gastos gastos={gastos} alTerminar={cargarDatos} />}
-        {vista === 'balance' && rol === 'admin' && <Balance ventas={ventas} gastos={gastos} />}
+        {vista === 'gastos' && (perfil?.rol === 'admin' || perfil?.rol === 'subadmin') && <Gastos gastos={gastos} alTerminar={cargarDatos} />}
+        {vista === 'balance' && (perfil?.rol === 'admin' || perfil?.rol === 'subadmin') && <Balance ventas={ventas} gastos={gastos} />}
         {vista === 'reporte' && <Reportes ventas={ventas} gastos={gastos} />}
         {vista === 'historial' && <Tickets ventas={ventas} alTerminar={cargarDatos} />}
         {vista === 'admin' && <Gestion productos={productos} alTerminar={cargarDatos} />}
+        {vista === 'personal' && perfil?.rol === 'admin' && <Personal />}
       </main>
     </div>
   )

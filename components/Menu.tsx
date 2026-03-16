@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react' 
 import { printer } from '@/lib/printer'
 import { estilos, BotonAccionmenu } from './UI'
 import { ModalImprimir } from './ModalImprimir'
@@ -11,32 +12,38 @@ export default function Menu({ productos, ventas, alTerminar }: any) {
     datosParaImprimir, finalizarTodo
   } = useMenuLogic(alTerminar);
 
+  // --- ESTADOS PARA MÉTODOS DE PAGO ---
+  const [metodoPago, setMetodoPago] = useState<'qr' | 'ef' | 'pya'>('ef');
+  const [montoRecibido, setMontoRecibido] = useState<number>(0);
+
+  const totalVenta = carrito.reduce((a, b) => a + (b.precio * b.cantidad), 0);
+  const cambio = montoRecibido > totalVenta ? (montoRecibido - totalVenta).toFixed(2) : "0.00";
+
   // Filtros rápidos
   const productosBase = productos?.filter((p: any) => p.activo && !p.archivado) || [];
   const principales = productosBase.filter((p: any) => !p.es_a_la_carta);
   const aLaCarta = productosBase.filter((p: any) => p.es_a_la_carta);
 
-  // --- SOLUCIÓN PARA LA CAJA DE HOY ---
   const hoyCeroHoras = new Date();
-  hoyCeroHoras.setHours(0, 0, 0, 0); // Establecemos el inicio exacto del día
+  hoyCeroHoras.setHours(0, 0, 0, 0);
 
   const totalCajaHoy = ventas?.filter((v: any) => {
-    // Convertimos la fecha de la venta a un objeto de fecha real
     const fechaVenta = new Date(v.creado_at);
-    // Solo incluimos ventas que ocurrieron hoy
     return fechaVenta >= hoyCeroHoras;
   })
   .reduce((acc: number, v: any) => acc + Number(v.precio_venta), 0) || 0;
-  // ------------------------------------
 
+  // --- FUNCIÓN ACTUALIZADA ---
   const confirmarImpresion = () => {
     if (datosParaImprimir) {
       printer.imprimirTicket(
         datosParaImprimir.cliente, datosParaImprimir.carrito, 
-        datosParaImprimir.total, datosParaImprimir.notas, datosParaImprimir.nro
+        datosParaImprimir.total, datosParaImprimir.notas, datosParaImprimir.nro, datosParaImprimir.metodo
       );
     }
     finalizarTodo();
+    setMontoRecibido(0); // Limpiar calculadora
+    setMetodoPago('ef'); // Reset a efectivo por defecto
   };
 
   return (
@@ -52,7 +59,7 @@ export default function Menu({ productos, ventas, alTerminar }: any) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {principales.map((p: any) => (
               <button key={p.id} onClick={() => gestionarCarrito(p, 'sumar')} disabled={p.stock <= 0}
-                className={`p-4 rounded-2xl shadow-sm border flex justify-between items-center transition-all active:scale-95 ${p.stock > 0 ? 'bg-white' : 'bg-gray-100 opacity-50'}`}>
+                className={`p-4 rounded-2xl shadow-sm border flex justify-between items-center transition-all active:scale-95 ${p.stock > 0 ? 'bg-white border-gray-100' : 'bg-gray-100 opacity-50'}`}>
                 <div className="text-left">
                   <p className="font-bold text-xs uppercase">{p.nombre}</p>
                   <p className="text-[10px] font-black text-orange-500 italic">STOCK: {p.stock}</p>
@@ -84,8 +91,8 @@ export default function Menu({ productos, ventas, alTerminar }: any) {
         {/* SECCIÓN COMANDA */}
         <div className="w-full lg:w-96">
           <div className="bg-white p-6 rounded-[2.5rem] shadow-2xl border-t-8 border-orange-500 sticky top-6">
-            <input placeholder="MESA" value={cliente} onChange={e => setCliente(e.target.value)} className={estilos.input + " mb-2 uppercase"} />
-            <textarea placeholder="NOTAS" value={notas} onChange={e => setNotas(e.target.value)} className="w-full p-4 bg-orange-50 rounded-2xl mb-4 font-bold text-[11px] h-20 outline-none" />
+            <input placeholder="MESA / CLIENTE" value={cliente} onChange={e => setCliente(e.target.value)} className={estilos.input + " mb-2 uppercase"} />
+            <textarea placeholder="NOTAS DEL PEDIDO" value={notas} onChange={e => setNotas(e.target.value)} className="w-full p-4 bg-orange-50 rounded-2xl mb-4 font-bold text-[11px] h-20 outline-none resize-none" />
             
             <div className="space-y-2 mb-4 max-h-60 overflow-auto pr-1">
               {carrito.map(item => (
@@ -105,10 +112,40 @@ export default function Menu({ productos, ventas, alTerminar }: any) {
 
             {carrito.length > 0 && (
               <div className="pt-4 border-t-2 border-dashed border-gray-100">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-3xl font-black text-gray-800">Bs {carrito.reduce((a,b)=>a+(b.precio*b.cantidad),0).toFixed(2)}</span>
+                {/* MÉTODOS DE PAGO */}
+                <div className="flex gap-2 mb-4">
+                  <button onClick={() => setMetodoPago('qr')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all border-2 ${metodoPago === 'qr' ? 'bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>QR 📱</button>
+                  <button onClick={() => setMetodoPago('ef')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all border-2 ${metodoPago === 'ef' ? 'bg-green-600 border-green-600 text-white shadow-lg shadow-green-200' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>EF 💵</button>
+                  <button onClick={() => setMetodoPago('pya')} className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase transition-all border-2 ${metodoPago === 'pya' ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-200' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>PYA 🛵</button>
                 </div>
-                <button onClick={handleConfirmar} className="w-full bg-orange-500 text-white py-5 rounded-[2rem] font-black text-sm shadow-xl active:scale-95 transition hover:bg-orange-600">
+
+                {/* CALCULADORA EFECTIVO */}
+                {metodoPago === 'ef' && (
+                  <div className="mb-4 bg-gray-50 p-3 rounded-3xl border border-gray-100 animate-in zoom-in duration-200">
+                    <div className="flex gap-2 mb-3">
+                      {[20, 50, 100, 200].map(monto => (
+                        <button key={monto} onClick={() => setMontoRecibido(monto)} className="flex-1 py-2 bg-white border border-gray-200 rounded-xl text-[10px] font-black text-gray-600 hover:bg-green-50 transition-all">Bs {monto}</button>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center bg-white p-3 rounded-2xl border border-gray-100">
+                      <div>
+                        <p className="text-[8px] font-black text-gray-400 uppercase leading-none">Cambio</p>
+                        <p className="text-lg font-black text-green-600 leading-none">Bs {cambio}</p>
+                      </div>
+                      <input type="number" placeholder="Paga con..." value={montoRecibido || ''} onChange={(e) => setMontoRecibido(Number(e.target.value))} className="w-24 text-right bg-transparent font-black text-gray-800 outline-none" />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center mb-4 px-2">
+                  <span className="text-3xl font-black text-gray-800 tracking-tighter">Bs {totalVenta.toFixed(2)}</span>
+                </div>
+                
+                {/* BOTÓN CONFIRMAR ACTUALIZADO */}
+                <button 
+                  onClick={() => handleConfirmar(metodoPago)} 
+                  className="w-full bg-orange-500 text-white py-5 rounded-[2rem] font-black text-sm shadow-xl active:scale-95 transition hover:bg-orange-600"
+                >
                   CONFIRMAR Y TICKET 🧾
                 </button>
               </div>

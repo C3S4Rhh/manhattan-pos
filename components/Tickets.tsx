@@ -5,7 +5,7 @@ import { printer } from '@/lib/printer'
 export default function Tickets({ ventas, alTerminar }: any) {
   const hoy = new Date().toLocaleDateString('sv-SE');
 
-  // 1. Filtramos y ORDENAMOS por fecha (lo más antiguo primero para el conteo)
+  // 1. Filtramos y ORDENAMOS por fecha
   const ventasHoy = ventas
     .filter((v: any) => {
       if (!v.creado_at) return false;
@@ -14,10 +14,8 @@ export default function Tickets({ ventas, alTerminar }: any) {
     })
     .sort((a: any, b: any) => new Date(a.creado_at).getTime() - new Date(b.creado_at).getTime());
 
-  // 2. AGRUPAMOS POR "MOMENTO DE VENTA" (Usando creado_at como llave única)
+  // 2. AGRUPAMOS POR "MOMENTO DE VENTA"
   const pedidosAgrupados = ventasHoy.reduce((acc: any, v: any) => {
-    // Usamos el 'creado_at' como llave. Al ser exacto (incluye segundos/milisegundos), 
-    // cada vez que das clic en "Confirmar", se crea una llave única.
     const pedidoKey = v.creado_at; 
     
     if (!acc[pedidoKey]) {
@@ -28,7 +26,9 @@ export default function Tickets({ ventas, alTerminar }: any) {
         hora: new Date(v.creado_at).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' }),
         entregado: v.entregado,
         ids: [],
-        timestamp: new Date(v.creado_at).getTime() // Para ordenar al final
+        timestamp: new Date(v.creado_at).getTime(),
+        metodo: v.metodo_pago,
+        notas_originales: v.notas
       }
     }
     
@@ -48,30 +48,41 @@ export default function Tickets({ ventas, alTerminar }: any) {
 
   // 3. Convertimos a lista y asignamos Nro de Pedido real
   const listaPedidos = Object.values(pedidosAgrupados)
-    .sort((a: any, b: any) => a.timestamp - b.timestamp) // Asegurar orden cronológico
+    .sort((a: any, b: any) => a.timestamp - b.timestamp)
     .map((pedido: any, index: number) => ({
       ...pedido,
       nroPedido: index + 1
     }));
 
-  const marcarTodoEntregado = async (ids: number[], estadoActual: boolean) => {
-    const { error } = await supabase
+  // --- FUNCIÓN OPTIMIZADA: ACTUALIZACIÓN INSTANTÁNEA ---
+  const marcarTodoEntregado = (ids: number[], estadoActual: boolean) => {
+    // Primero: Avisamos a la UI que actualice inmediatamente
+    alTerminar();
+
+    // Segundo: Lanzamos la petición a Supabase en segundo plano
+    supabase
       .from('ventas')
       .update({ entregado: !estadoActual })
-      .in('id', ids);
-    
-    if (!error) {
-      alTerminar();
-    }
+      .in('id', ids)
+      .then(({ error }) => {
+        if (error) {
+          console.error("Error al actualizar:", error);
+          // Si falla, refrescamos de nuevo para volver al estado real
+          alTerminar();
+        }
+      });
   };
 
+  // --- CORRECCIÓN DE REIMPRESIÓN ---
   const manejarReimpresion = (e: React.MouseEvent, pedido: any) => {
     e.stopPropagation(); 
     printer.imprimirTicket(
-      `#${pedido.nroPedido} - ${pedido.cliente}`, 
+      pedido.cliente, 
       pedido.items, 
       pedido.total, 
-      `HORA: ${pedido.hora}` 
+      pedido.notas_originales || `HORA: ${pedido.hora}`, 
+      `#${pedido.nroPedido}`,
+      pedido.metodo
     );
   };
 
@@ -86,7 +97,6 @@ export default function Tickets({ ventas, alTerminar }: any) {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2">
         {listaPedidos.length > 0 ? (
-          // Invertimos para ver el ÚLTIMO pedido arriba
           [...listaPedidos].reverse().map((pedido: any) => (
             <div 
               key={pedido.nroPedido} 

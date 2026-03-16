@@ -1,12 +1,20 @@
 import { estilosTicket } from '@/components/UI';
 
 export const printer = {
-  imprimirTicket(nom: string, items: any[], total: number, n: string, nro?: string) {
+  // Añadimos 'metodo' a los parámetros
+  imprimirTicket(nom: string, items: any[], total: number, n: string, nro?: string, metodo?: string) {
     const win = window.open('', '', 'width=400,height=600');
     if (!win) return;
     
     win.document.title = "Ticket - Spinach";
     const fechaActual = new Date().toLocaleString('es-BO');
+
+    // Mapeo para mostrar nombres claros del método de pago
+    const nombresMetodo: any = {
+      'qr': 'QR / TRANSFERENCIA',
+      'ef': 'EFECTIVO',
+      'pya': 'PEDIDOSYA'
+    };
     
     win.document.write(`
       <html>
@@ -38,6 +46,10 @@ export const printer = {
           <div class="total">
             <span>TOTAL:</span> 
             <span>Bs ${total.toFixed(2)}</span>
+          </div>
+
+          <div style="margin-top: 5px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+            PAGO: ${metodo ? nombresMetodo[metodo] : 'EFECTIVO'}
           </div>
 
           <div style="margin-top: 15px; display: flex; justify-content: flex-start;">
