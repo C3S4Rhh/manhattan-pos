@@ -1,20 +1,23 @@
 import { estilosTicket } from '@/components/UI';
 
+
 export const printer = {
-  // Añadimos 'metodo' a los parámetros
-  imprimirTicket(nom: string, items: any[], total: number, n: string, nro?: string, metodo?: string) {
+
+  imprimirTicket(nom: string, items: any[], total: number, n: string, nro?: string, metodo?: string, horaVenta?: string) {
     const win = window.open('', '', 'width=400,height=600');
     if (!win) return;
     
     win.document.title = "Ticket - Spinach";
-    const fechaActual = new Date().toLocaleString('es-BO');
+    const fechaImpresion = new Date().toLocaleString('es-BO');
 
-    // Mapeo para mostrar nombres claros del método de pago
     const nombresMetodo: any = {
       'qr': 'QR / TRANSFERENCIA',
       'ef': 'EFECTIVO',
       'pya': 'PEDIDOSYA'
     };
+
+   
+    const notaLimpia = n?.toUpperCase().includes("HORA:") && n.length < 20 ? "" : n;
     
     win.document.write(`
       <html>
@@ -22,22 +25,30 @@ export const printer = {
         <body>
           <div class="text-center header">
             <h2>SPINACH 🍱</h2>
-            <small>${fechaActual}</small>
+            <small>${fechaImpresion}</small>
           </div>
           <div class="linea"></div>
-          <div style="font-size: 15px"><b>CLIENTE:</b> ${nom.toUpperCase()}</div>
+          
+          <div style="font-size: 20px"><b>C/MESA:</b> ${nom.toUpperCase()}</div>
+          
+          ${horaVenta ? `
+            <div style="font-size: 13px; margin-top: 2px;">
+              <b>HORA VENTA:</b> ${horaVenta}
+            </div>
+          ` : ''}
+
           <div class="linea"></div>
           
           ${items.map(i => `
-            <div class="item">
+            <div class="item" style="font-size: 20px">
               <span>${i.cantidad}x ${i.nombre}</span> 
               <span>Bs${(i.precio * i.cantidad).toFixed(2)}</span>
             </div>
           `).join('')}
 
-          ${n ? `
+          ${notaLimpia ? `
             <div style="margin-top: 5px; padding: 10px; border: 1px dashed #ccc; font-size: 20px;">
-              <b>NOTAS:</b> ${n.toUpperCase()}
+              <b>NOTAS:</b> ${notaLimpia.toUpperCase()}
             </div>
           ` : ''}
 
@@ -53,7 +64,7 @@ export const printer = {
           </div>
 
           <div style="margin-top: 15px; display: flex; justify-content: flex-start;">
-            <div style="font-size: 14px; font-weight: 900; border: 2px solid black; padding: 4px 8px; text-transform: uppercase;">
+            <div style="font-size: 18px; font-weight: 900; border: 2px solid black; padding: 4px 8px; text-transform: uppercase;">
               ${nro ? nro : 'ORDEN: #--'}
             </div>
           </div>

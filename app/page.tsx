@@ -9,7 +9,8 @@ import Gastos from '@/components/Gastos/Gastos'
 import Balance from '@/components/Balance'
 import Personal from '@/components/Personal'
 import LoginPage from './login/page'
-// IMPORTAMOS EL NUEVO MODAL
+// IMPORTAMOS EL NUEVO COMPONENTE DE PEDIDOS YA
+import PanelPedidosYa from '@/components/PanelPedidosYa'
 import ModalPassword from '@/components/ui/ModalPassword'
 
 export default function Home() {
@@ -22,7 +23,6 @@ export default function Home() {
   const [perfil, setPerfil] = useState<any>(null)
   const [cargando, setCargando] = useState(true)
 
-  // NUEVO ESTADO PARA EL MODAL
   const [modalPasswordAbierto, setModalPasswordAbierto] = useState(false)
 
   const cargarDatos = async () => {
@@ -35,12 +35,10 @@ export default function Home() {
     if (g) setGastos([...g])
   }
 
-  // FUNCIÓN ACTUALIZADA PARA ABRIR EL MODAL
   const cambiarPassword = () => {
     setModalPasswordAbierto(true)
   }
 
-  // FUNCIÓN PARA PROCESAR EL CAMBIO REAL EN SUPABASE
   const confirmarCambioClave = async (nuevaClave: string) => {
     const { error } = await supabase.auth.updateUser({ password: nuevaClave })
     if (error) {
@@ -100,7 +98,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-10 font-sans">
-      {/* COMPONENTE MODAL DE CLAVE */}
       <ModalPassword 
         isOpen={modalPasswordAbierto}
         onClose={() => setModalPasswordAbierto(false)}
@@ -134,6 +131,11 @@ export default function Home() {
         <div className="flex gap-2 overflow-x-auto pb-2 justify-start md:justify-center no-scrollbar">
           <button onClick={() => setVista('menu')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'menu' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-500'}`}>Vender 💰</button>
           
+          {/* BOTÓN PEDIDOS YA - SOLO ADMIN */}
+          {perfil?.rol === 'admin' && (
+            <button onClick={() => setVista('pya')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'pya' ? 'bg-red-600 text-white shadow-lg shadow-red-100' : 'bg-gray-100 text-gray-500'}`}>Pedidos Ya 🛵</button>
+          )}
+
           {(perfil?.rol === 'admin' || perfil?.rol === 'subadmin') && (
             <>
               <button onClick={() => setVista('gastos')} className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase flex-shrink-0 ${vista === 'gastos' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-500'}`}>Gastos 💸</button>
@@ -154,6 +156,7 @@ export default function Home() {
 
       <main className="max-w-5xl mx-auto px-2">
         {vista === 'menu' && <Menu productos={productos} ventas={ventas} alTerminar={cargarDatos} />}
+        {vista === 'pya' && perfil?.rol === 'admin' && <PanelPedidosYa ventas={ventas} alTerminar={cargarDatos} />}
         {vista === 'gastos' && (perfil?.rol === 'admin' || perfil?.rol === 'subadmin') && <Gastos gastos={gastos} alTerminar={cargarDatos} />}
         {vista === 'balance' && (perfil?.rol === 'admin' || perfil?.rol === 'subadmin') && <Balance ventas={ventas} gastos={gastos} />}
         {vista === 'reporte' && <Reportes ventas={ventas} gastos={gastos} />}
